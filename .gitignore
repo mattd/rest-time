@@ -1,0 +1,9 @@
+.#*
+*~
+\#*
+*.sw[p|o]
+.DS_Store
+__MACOSX
+
+# Ignore build generated files
+build
