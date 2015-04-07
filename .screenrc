@@ -1,0 +1,14 @@
+defscrollback 20480
+
+setenv PROJECT_DIR "$PWD"
+
+screen -t git 1 wrap emacsclient -c -s $PROJECT_NAME
+screen -t emacs 2 wrap emacsclient -c -s $PROJECT_NAME
+screen 3
+
+source $HOME/.screenrc
+caption always
+
+kill
+
+select 1
