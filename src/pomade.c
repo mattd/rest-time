@@ -5,7 +5,7 @@ static Window *s_main_window;
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
 
-static int s_countdown_seconds = 1500;
+static int s_countdown_seconds = 20;
 static bool s_in_rest_mode = false;
 
 static char* get_formatted_countdown() {
@@ -13,9 +13,29 @@ static char* get_formatted_countdown() {
     int minutes = (s_countdown_seconds / 60) % 60;
     static char str[] = "00:00";
 
-    snprintf(str, sizeof("00:00"), "%d:%02d", minutes, seconds);
+    snprintf(str, sizeof("00:00"), "%01d:%02d", minutes, seconds);
 
     return str;
+}
+
+static void set_colors() {
+    if (s_in_rest_mode) {
+        window_set_background_color(s_main_window, GColorWhite);
+
+        text_layer_set_background_color(s_clock_layer, GColorWhite);
+        text_layer_set_text_color(s_clock_layer, GColorBlack);
+
+        text_layer_set_background_color(s_countdown_layer, GColorWhite);
+        text_layer_set_text_color(s_countdown_layer, GColorBlack);
+    } else {
+        window_set_background_color(s_main_window, GColorBlack);
+
+        text_layer_set_background_color(s_clock_layer, GColorBlack);
+        text_layer_set_text_color(s_clock_layer, GColorWhite);
+
+        text_layer_set_background_color(s_countdown_layer, GColorBlack);
+        text_layer_set_text_color(s_countdown_layer, GColorWhite);
+    }
 }
 
 static void update_clock_time() {
@@ -39,32 +59,27 @@ static void update_countdown_time() {
     text_layer_set_text(s_countdown_layer, get_formatted_countdown());
 }
 
+static void update_rest_mode() {
+    if (s_countdown_seconds == 0) {
+        if (s_in_rest_mode == false) {
+            s_countdown_seconds = 120;
+            s_in_rest_mode = true;
+        } else {
+            s_countdown_seconds = 1500;
+            s_in_rest_mode = false;
+        }
+        set_colors();
+    }
+}
+
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     update_countdown_time();
 
     if (units_changed | MINUTE_UNIT) {
         update_clock_time();
     }
-}
 
-static void set_colors() {
-    if (s_in_rest_mode) {
-        window_set_background_color(s_main_window, GColorClear);
-
-        text_layer_set_background_color(s_clock_layer, GColorClear);
-        text_layer_set_text_color(s_clock_layer, GColorBlack);
-
-        text_layer_set_background_color(s_countdown_layer, GColorClear);
-        text_layer_set_text_color(s_countdown_layer, GColorBlack);
-    } else {
-        window_set_background_color(s_main_window, GColorBlack);
-
-        text_layer_set_background_color(s_clock_layer, GColorBlack);
-        text_layer_set_text_color(s_clock_layer, GColorClear);
-
-        text_layer_set_background_color(s_countdown_layer, GColorBlack);
-        text_layer_set_text_color(s_countdown_layer, GColorClear);
-    }
+    update_rest_mode();
 }
 
 static void main_window_load(Window *window) {
