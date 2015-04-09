@@ -13,7 +13,7 @@ static char* get_formatted_countdown() {
     int minutes = (s_countdown_seconds / 60) % 60;
     static char str[] = "00:00";
 
-    snprintf(str, sizeof("00:00"), "%d:%d", minutes, seconds);
+    snprintf(str, sizeof("00:00"), "%d:%02d", minutes, seconds);
 
     return str;
 }
