@@ -5,7 +5,7 @@ static Window *s_main_window;
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
 
-static int s_countdown_seconds = 20;
+static int s_countdown_seconds = 10;
 static bool s_in_rest_mode = false;
 
 static char* get_formatted_countdown() {
@@ -55,17 +55,17 @@ static void update_clock_time() {
 }
 
 static void update_countdown_time() {
-    --s_countdown_seconds;
     text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+    --s_countdown_seconds;
 }
 
 static void update_rest_mode() {
     if (s_countdown_seconds == 0) {
         if (s_in_rest_mode == false) {
-            s_countdown_seconds = 120;
+            s_countdown_seconds = 10;
             s_in_rest_mode = true;
         } else {
-            s_countdown_seconds = 1500;
+            s_countdown_seconds = 10;
             s_in_rest_mode = false;
         }
         set_colors();
@@ -73,13 +73,13 @@ static void update_rest_mode() {
 }
 
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+    update_rest_mode();
+
     update_countdown_time();
 
     if (units_changed | MINUTE_UNIT) {
         update_clock_time();
     }
-
-    update_rest_mode();
 }
 
 static void main_window_load(Window *window) {
