@@ -5,8 +5,12 @@ static Window *s_main_window;
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
 
-static int s_countdown_seconds = 10;
+const int WORK_INTERVAL = 1500;
+const int REST_INTERVAL = 120;
+
+static int s_countdown_seconds = 1500;
 static bool s_in_rest_mode = false;
+static bool s_countdown_paused = true;
 
 static char* get_formatted_countdown() {
     int seconds = s_countdown_seconds % 60;
@@ -55,25 +59,29 @@ static void update_clock_time() {
 }
 
 static void update_countdown_time() {
-    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
-    --s_countdown_seconds;
+    if (!s_countdown_paused) {
+        text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+        --s_countdown_seconds;
+    }
 }
 
-static void update_rest_mode() {
-    if (s_countdown_seconds == 0) {
+static void update_rest_mode(bool force) {
+    if (s_countdown_seconds == 0 || force == true) {
         if (s_in_rest_mode == false) {
-            s_countdown_seconds = 10;
+            s_countdown_seconds = REST_INTERVAL;
             s_in_rest_mode = true;
+            vibes_double_pulse();
         } else {
-            s_countdown_seconds = 10;
+            s_countdown_seconds = WORK_INTERVAL;
             s_in_rest_mode = false;
+            vibes_short_pulse();
         }
         set_colors();
     }
 }
 
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-    update_rest_mode();
+    update_rest_mode(false);
 
     update_countdown_time();
 
@@ -83,8 +91,8 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void main_window_load(Window *window) {
-    s_clock_layer = text_layer_create(GRect(5, 75, 144, 50));
-    s_countdown_layer = text_layer_create(GRect(5, 35, 144, 42));
+    s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
+    s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
 
     text_layer_set_font(
         s_clock_layer,
@@ -108,11 +116,49 @@ static void main_window_load(Window *window) {
 
     update_clock_time();
     update_countdown_time();
+
+    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
 }
 
 static void main_window_unload(Window *window) {
     text_layer_destroy(s_clock_layer);
     text_layer_destroy(s_countdown_layer);
+}
+
+static void select_single_click_handler (ClickRecognizerRef recognizer,
+                                         void *context) {
+    s_countdown_paused = !s_countdown_paused;
+}
+
+static void up_single_click_handler (ClickRecognizerRef recognizer,
+                                         void *context) {
+    s_countdown_seconds = WORK_INTERVAL;
+    s_in_rest_mode = false;
+    update_rest_mode(true);
+    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+}
+
+static void down_single_click_handler (ClickRecognizerRef recognizer,
+                                         void *context) {
+    s_countdown_seconds = REST_INTERVAL;
+    s_in_rest_mode = true;
+    update_rest_mode(true);
+    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+}
+
+static void click_config_provider (Window *window) {
+    window_single_click_subscribe(
+        BUTTON_ID_SELECT,
+        select_single_click_handler
+    );
+    window_single_click_subscribe(
+        BUTTON_ID_UP,
+        up_single_click_handler
+    );
+    window_single_click_subscribe(
+        BUTTON_ID_DOWN,
+        down_single_click_handler
+    );
 }
 
 static void init() {
@@ -124,6 +170,11 @@ static void init() {
         .load = main_window_load,
         .unload = main_window_unload
     });
+
+    window_set_click_config_provider(
+        s_main_window,
+        (ClickConfigProvider) click_config_provider
+    );
 
     window_stack_push(s_main_window, true);
 
