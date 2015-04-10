@@ -1,2 +1,2 @@
-# pomade
-A simple, flexible Pomodoro-style timer.
+# Rest Time
+A Pebble app that reminds you to rest.
