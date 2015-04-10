@@ -1,16 +1,36 @@
 #include <pebble.h>
 
+#define PERSIST_WORK_INTERVAL 10
+#define PERSIST_REST_INTERVAL 20
+
+#define DEFAULT_WORK_INTERVAL 1500
+#define DEFAULT_REST_INTERVAL 120
+
 static Window *s_main_window;
 
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
 
-const int WORK_INTERVAL = 1500;
-const int REST_INTERVAL = 120;
-
-static int s_countdown_seconds = 1500;
 static bool s_in_rest_mode = false;
 static bool s_countdown_paused = true;
+
+static int WORK_INTERVAL;
+static int REST_INTERVAL;
+
+static int s_countdown_seconds;
+
+static void init_settings() {
+   WORK_INTERVAL = (
+       persist_exists(PERSIST_WORK_INTERVAL) ?
+           persist_read_int(PERSIST_WORK_INTERVAL) :
+           DEFAULT_WORK_INTERVAL
+   );
+   REST_INTERVAL = (
+       persist_exists(PERSIST_REST_INTERVAL) ?
+           persist_read_int(PERSIST_REST_INTERVAL) :
+           DEFAULT_REST_INTERVAL
+   );
+}
 
 static char* get_formatted_countdown() {
     int seconds = s_countdown_seconds % 60;
@@ -162,6 +182,10 @@ static void click_config_provider (Window *window) {
 }
 
 static void init() {
+    init_settings();
+
+    s_countdown_seconds = WORK_INTERVAL;
+
     s_main_window = window_create();
 
     window_set_fullscreen(s_main_window, true);
