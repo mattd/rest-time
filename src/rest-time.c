@@ -6,16 +6,24 @@
 #define DEFAULT_WORK_INTERVAL 1500
 #define DEFAULT_REST_INTERVAL 120
 
+#define NUM_MENU_SECTIONS 1
+#define NUM_MENU_ITEMS 2
+
+static int WORK_INTERVAL;
+static int REST_INTERVAL;
+
 static Window *s_main_window;
+static Window *s_menu_window;
 
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
 
+static SimpleMenuLayer *s_simple_menu_layer;
+static SimpleMenuSection s_menu_sections[NUM_MENU_SECTIONS];
+static SimpleMenuItem s_menu_items[NUM_MENU_ITEMS];
+
 static bool s_in_rest_mode = false;
 static bool s_countdown_paused = true;
-
-static int WORK_INTERVAL;
-static int REST_INTERVAL;
 
 static int s_countdown_seconds;
 
@@ -30,6 +38,21 @@ static void init_settings() {
            persist_read_int(PERSIST_REST_INTERVAL) :
            DEFAULT_REST_INTERVAL
    );
+}
+
+static void build_menu() {
+    s_menu_items[0] = (SimpleMenuItem) {
+        .title = "First Item",
+        .subtitle = "This is this."
+    };
+    s_menu_items[1] = (SimpleMenuItem) {
+        .title = "Second Item",
+        .subtitle = "That is that."
+    };
+    s_menu_sections[0] = (SimpleMenuSection) {
+        .num_items = NUM_MENU_ITEMS,
+        .items = s_menu_items
+    };
 }
 
 static char* get_formatted_countdown() {
@@ -145,13 +168,35 @@ static void main_window_unload(Window *window) {
     text_layer_destroy(s_countdown_layer);
 }
 
+static void menu_window_load(Window *window) {
+    Layer *window_layer = window_get_root_layer(window);
+    GRect bounds = layer_get_frame(window_layer);
+
+    s_simple_menu_layer = simple_menu_layer_create(
+        bounds,
+        window,
+        s_menu_sections,
+        NUM_MENU_SECTIONS,
+        NULL
+    );
+
+    layer_add_child(
+        window_layer,
+        simple_menu_layer_get_layer(s_simple_menu_layer)
+    );
+}
+
+static void menu_window_unload(Window *window) {
+    simple_menu_layer_destroy(s_simple_menu_layer);
+}
+
 static void select_single_click_handler (ClickRecognizerRef recognizer,
                                          void *context) {
     s_countdown_paused = !s_countdown_paused;
 }
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
-                                         void *context) {
+                                     void *context) {
     s_countdown_seconds = WORK_INTERVAL;
     s_in_rest_mode = false;
     update_rest_mode(true);
@@ -159,11 +204,16 @@ static void up_single_click_handler (ClickRecognizerRef recognizer,
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
-                                         void *context) {
+                                       void *context) {
     s_countdown_seconds = REST_INTERVAL;
     s_in_rest_mode = true;
     update_rest_mode(true);
     text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+}
+
+static void select_multi_click_handler (ClickRecognizerRef recognizer,
+                                        void *context) {
+    window_stack_push(s_menu_window, true);
 }
 
 static void click_config_provider (Window *window) {
@@ -179,13 +229,26 @@ static void click_config_provider (Window *window) {
         BUTTON_ID_DOWN,
         down_single_click_handler
     );
+    window_multi_click_subscribe(
+        BUTTON_ID_SELECT,
+        2,
+        10,
+        0,
+        true,
+        select_multi_click_handler
+    );
 }
 
 static void init() {
+    // Initialize core.
     init_settings();
+    build_menu();
 
+    // Setup clock updates.
     s_countdown_seconds = WORK_INTERVAL;
+    tick_timer_service_subscribe(SECOND_UNIT, time_tick_handler);
 
+    // Create and configure main window.
     s_main_window = window_create();
 
     window_set_fullscreen(s_main_window, true);
@@ -200,13 +263,21 @@ static void init() {
         (ClickConfigProvider) click_config_provider
     );
 
-    window_stack_push(s_main_window, true);
+    // Create and configure menu window.
+    s_menu_window = window_create();
 
-    tick_timer_service_subscribe(SECOND_UNIT, time_tick_handler);
+    window_set_window_handlers(s_menu_window, (WindowHandlers) {
+        .load = menu_window_load,
+        .unload = menu_window_unload
+    });
+
+    // Kick things off.
+    window_stack_push(s_main_window, true);
 }
 
 static void deinit() {
     window_destroy(s_main_window);
+    window_destroy(s_menu_window);
 }
 
 int main(void) {
