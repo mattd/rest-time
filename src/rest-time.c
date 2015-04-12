@@ -40,29 +40,30 @@ static void init_settings() {
    );
 }
 
-static void build_menu() {
-    s_menu_items[0] = (SimpleMenuItem) {
-        .title = "First Item",
-        .subtitle = "This is this."
-    };
-    s_menu_items[1] = (SimpleMenuItem) {
-        .title = "Second Item",
-        .subtitle = "That is that."
-    };
-    s_menu_sections[0] = (SimpleMenuSection) {
-        .num_items = NUM_MENU_ITEMS,
-        .items = s_menu_items
-    };
-}
-
-static char* get_formatted_countdown() {
-    int seconds = s_countdown_seconds % 60;
-    int minutes = (s_countdown_seconds / 60) % 60;
+static char* format_countdown_time(int countdown_time) {
+    int seconds = countdown_time % 60;
+    int minutes = (countdown_time / 60) % 60;
     static char str[] = "00:00";
 
     snprintf(str, sizeof("00:00"), "%01d:%02d", minutes, seconds);
 
     return str;
+}
+
+static void build_menu() {
+    s_menu_items[0] = (SimpleMenuItem) {
+        .title = "Work Interval",
+        .subtitle = format_countdown_time(WORK_INTERVAL)
+    };
+    s_menu_items[1] = (SimpleMenuItem) {
+        .title = "Rest Interval",
+        .subtitle = format_countdown_time(REST_INTERVAL)
+    };
+    s_menu_sections[0] = (SimpleMenuSection) {
+        .title = "Settings",
+        .num_items = NUM_MENU_ITEMS,
+        .items = s_menu_items
+    };
 }
 
 static void set_colors() {
@@ -103,7 +104,10 @@ static void update_clock_time() {
 
 static void update_countdown_time() {
     if (!s_countdown_paused) {
-        text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+        text_layer_set_text(
+            s_countdown_layer,
+            format_countdown_time(s_countdown_seconds)
+        );
         --s_countdown_seconds;
     }
 }
@@ -133,6 +137,9 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     }
 }
 
+static void persist_data() {
+}
+
 static void main_window_load(Window *window) {
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
@@ -160,7 +167,10 @@ static void main_window_load(Window *window) {
     update_clock_time();
     update_countdown_time();
 
-    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds)
+    );
 }
 
 static void main_window_unload(Window *window) {
@@ -200,7 +210,10 @@ static void up_single_click_handler (ClickRecognizerRef recognizer,
     s_countdown_seconds = WORK_INTERVAL;
     s_in_rest_mode = false;
     update_rest_mode(true);
-    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds)
+    );
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
@@ -208,7 +221,10 @@ static void down_single_click_handler (ClickRecognizerRef recognizer,
     s_countdown_seconds = REST_INTERVAL;
     s_in_rest_mode = true;
     update_rest_mode(true);
-    text_layer_set_text(s_countdown_layer, get_formatted_countdown());
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds)
+    );
 }
 
 static void select_multi_click_handler (ClickRecognizerRef recognizer,
@@ -276,6 +292,7 @@ static void init() {
 }
 
 static void deinit() {
+    persist_data();
     window_destroy(s_main_window);
     window_destroy(s_menu_window);
 }
