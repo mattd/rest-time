@@ -40,10 +40,9 @@ static void init_settings() {
    );
 }
 
-static char* format_countdown_time(int countdown_time) {
+static char* format_countdown_time(int countdown_time, char* str) {
     int seconds = countdown_time % 60;
     int minutes = (countdown_time / 60) % 60;
-    static char str[] = "00:00";
 
     snprintf(str, sizeof("00:00"), "%01d:%02d", minutes, seconds);
 
@@ -51,13 +50,16 @@ static char* format_countdown_time(int countdown_time) {
 }
 
 static void build_menu() {
+    static char work_countdown_str[6];
+    static char rest_countdown_str[6];
+
     s_menu_items[0] = (SimpleMenuItem) {
         .title = "Work Interval",
-        .subtitle = format_countdown_time(WORK_INTERVAL)
+        .subtitle = format_countdown_time(WORK_INTERVAL, work_countdown_str)
     };
     s_menu_items[1] = (SimpleMenuItem) {
         .title = "Rest Interval",
-        .subtitle = format_countdown_time(REST_INTERVAL)
+        .subtitle = format_countdown_time(REST_INTERVAL, rest_countdown_str)
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -103,10 +105,12 @@ static void update_clock_time() {
 }
 
 static void update_countdown_time() {
+    static char countdown_str[6];
+
     if (!s_countdown_paused) {
         text_layer_set_text(
             s_countdown_layer,
-            format_countdown_time(s_countdown_seconds)
+            format_countdown_time(s_countdown_seconds, countdown_str)
         );
         --s_countdown_seconds;
     }
@@ -141,6 +145,8 @@ static void persist_data() {
 }
 
 static void main_window_load(Window *window) {
+    static char countdown_str[6];
+
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
 
@@ -169,7 +175,7 @@ static void main_window_load(Window *window) {
 
     text_layer_set_text(
         s_countdown_layer,
-        format_countdown_time(s_countdown_seconds)
+        format_countdown_time(s_countdown_seconds, countdown_str)
     );
 }
 
@@ -207,23 +213,25 @@ static void select_single_click_handler (ClickRecognizerRef recognizer,
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
                                      void *context) {
+    static char countdown_str[6];
     s_countdown_seconds = WORK_INTERVAL;
     s_in_rest_mode = false;
     update_rest_mode(true);
     text_layer_set_text(
         s_countdown_layer,
-        format_countdown_time(s_countdown_seconds)
+        format_countdown_time(s_countdown_seconds, countdown_str)
     );
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
                                        void *context) {
+    static char countdown_str[6];
     s_countdown_seconds = REST_INTERVAL;
     s_in_rest_mode = true;
     update_rest_mode(true);
     text_layer_set_text(
         s_countdown_layer,
-        format_countdown_time(s_countdown_seconds)
+        format_countdown_time(s_countdown_seconds, countdown_str)
     );
 }
 
