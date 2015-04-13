@@ -180,6 +180,8 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void persist_data() {
+    persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
+    persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
 }
 
 static void main_window_load(Window *window) {
