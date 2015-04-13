@@ -11,6 +11,8 @@
 
 static int WORK_INTERVAL;
 static int REST_INTERVAL;
+static int STARTING_WORK_INTERVAL;
+static int STARTING_REST_INTERVAL;
 
 static Window *s_main_window;
 static Window *s_menu_window;
@@ -42,11 +44,45 @@ static void init_settings() {
 
 static char* format_countdown_time(int countdown_time, char* str) {
     int seconds = countdown_time % 60;
-    int minutes = (countdown_time / 60) % 60;
+    int minutes = countdown_time / 60;
 
     snprintf(str, sizeof("00:00"), "%01d:%02d", minutes, seconds);
 
     return str;
+}
+
+static void update_work_interval(int index, void *context) {
+    static char countdown_str[6];
+
+    if (WORK_INTERVAL == 3600) {
+        WORK_INTERVAL = 300;
+    } else {
+        WORK_INTERVAL += 300;
+    }
+
+    s_menu_items[0].subtitle = format_countdown_time(
+        WORK_INTERVAL,
+        countdown_str
+    );
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
+static void update_rest_interval(int index, void *context) {
+    static char countdown_str[6];
+
+    if (REST_INTERVAL == 600) {
+        REST_INTERVAL = 60;
+    } else {
+        REST_INTERVAL += 60;
+    }
+
+    s_menu_items[1].subtitle = format_countdown_time(
+        REST_INTERVAL,
+        countdown_str
+    );
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
 static void build_menu() {
@@ -55,11 +91,13 @@ static void build_menu() {
 
     s_menu_items[0] = (SimpleMenuItem) {
         .title = "Work Interval",
-        .subtitle = format_countdown_time(WORK_INTERVAL, work_countdown_str)
+        .subtitle = format_countdown_time(WORK_INTERVAL, work_countdown_str),
+        .callback = update_work_interval
     };
     s_menu_items[1] = (SimpleMenuItem) {
         .title = "Rest Interval",
-        .subtitle = format_countdown_time(REST_INTERVAL, rest_countdown_str)
+        .subtitle = format_countdown_time(REST_INTERVAL, rest_countdown_str),
+        .callback = update_rest_interval
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -188,6 +226,9 @@ static void menu_window_load(Window *window) {
     Layer *window_layer = window_get_root_layer(window);
     GRect bounds = layer_get_frame(window_layer);
 
+    STARTING_WORK_INTERVAL = WORK_INTERVAL;
+    STARTING_REST_INTERVAL = REST_INTERVAL;
+
     s_simple_menu_layer = simple_menu_layer_create(
         bounds,
         window,
@@ -203,6 +244,21 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
+    static char countdown_str[6];
+
+    if (
+        STARTING_REST_INTERVAL != REST_INTERVAL ||
+        STARTING_WORK_INTERVAL != WORK_INTERVAL
+    ) {
+        s_countdown_paused = true;
+        s_countdown_seconds = WORK_INTERVAL;
+        s_in_rest_mode = false;
+        text_layer_set_text(
+            s_countdown_layer,
+            format_countdown_time(s_countdown_seconds, countdown_str)
+        );
+        set_colors();
+    }
     simple_menu_layer_destroy(s_simple_menu_layer);
 }
 
