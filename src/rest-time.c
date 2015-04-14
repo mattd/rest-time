@@ -34,6 +34,7 @@ static Window *s_menu_window;
 
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
+static TextLayer *s_paused_indicator_layer;
 
 static SimpleMenuLayer *s_simple_menu_layer;
 static SimpleMenuSection s_menu_sections[NUM_MENU_SECTIONS];
@@ -148,6 +149,9 @@ static void set_colors() {
 
         text_layer_set_background_color(s_countdown_layer, GColorWhite);
         text_layer_set_text_color(s_countdown_layer, GColorBlack);
+
+        text_layer_set_background_color(s_paused_indicator_layer, GColorWhite);
+        text_layer_set_text_color(s_paused_indicator_layer, GColorBlack);
     } else {
         window_set_background_color(s_main_window, GColorBlack);
 
@@ -156,6 +160,9 @@ static void set_colors() {
 
         text_layer_set_background_color(s_countdown_layer, GColorBlack);
         text_layer_set_text_color(s_countdown_layer, GColorWhite);
+
+        text_layer_set_background_color(s_paused_indicator_layer, GColorBlack);
+        text_layer_set_text_color(s_paused_indicator_layer, GColorWhite);
     }
 }
 
@@ -227,6 +234,7 @@ static void main_window_load(Window *window) {
 
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
+    s_paused_indicator_layer = text_layer_create(GRect(5, 34, 60, 16));
 
     text_layer_set_font(
         s_clock_layer,
@@ -247,6 +255,10 @@ static void main_window_load(Window *window) {
         window_get_root_layer(window),
         text_layer_get_layer(s_countdown_layer)
     );
+    layer_add_child(
+        window_get_root_layer(window),
+        text_layer_get_layer(s_paused_indicator_layer)
+    );
 
     update_clock_time();
     update_countdown_time();
@@ -255,11 +267,13 @@ static void main_window_load(Window *window) {
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
+    text_layer_set_text(s_paused_indicator_layer, "Ready");
 }
 
 static void main_window_unload(Window *window) {
     text_layer_destroy(s_clock_layer);
     text_layer_destroy(s_countdown_layer);
+    text_layer_destroy(s_paused_indicator_layer);
 }
 
 static void menu_window_load(Window *window) {
@@ -305,6 +319,12 @@ static void menu_window_unload(Window *window) {
 static void select_single_click_handler (ClickRecognizerRef recognizer,
                                          void *context) {
     s_countdown_paused = !s_countdown_paused;
+
+    if (s_countdown_paused) {
+        text_layer_set_text(s_paused_indicator_layer, "Paused");
+    } else {
+        text_layer_set_text(s_paused_indicator_layer, "");
+    }
 }
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
