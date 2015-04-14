@@ -108,7 +108,7 @@ static void update_rest_interval(int index, void *context) {
 static void update_warning_vibration(int index, void *context) {
     WARNING_VIBRATION = !WARNING_VIBRATION;
 
-    s_menu_items[2].subtitle = WARNING_VIBRATION ? "Yes" : "No";
+    s_menu_items[2].subtitle = WARNING_VIBRATION ? "On" : "Off";
 
     layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
@@ -128,8 +128,8 @@ static void build_menu() {
         .callback = update_rest_interval
     };
     s_menu_items[2] = (SimpleMenuItem) {
-        .title = "Warning vibe?",
-        .subtitle = WARNING_VIBRATION ? "Yes" : "No",
+        .title = "Warning Vibe",
+        .subtitle = WARNING_VIBRATION ? "On" : "Off",
         .callback = update_warning_vibration
     };
     s_menu_sections[0] = (SimpleMenuSection) {
