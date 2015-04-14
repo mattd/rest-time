@@ -2,25 +2,32 @@
 
 #define PERSIST_WORK_INTERVAL 10
 #define PERSIST_REST_INTERVAL 20
+#define PERSIST_WARNING_VIBRATION 30
 
 #define DEFAULT_WORK_INTERVAL 1500
 #define DEFAULT_REST_INTERVAL 120
+#define DEFAULT_WARNING_VIBRATION false
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_MENU_ITEMS 2
+#define NUM_MENU_ITEMS 3
 
 #define MAX_WORK_INTERVAL 3600
-#define MAX_REST_INTERVAL 600
-
 #define WORK_INTERVAL_INCREMENT 300
+
+#define MAX_REST_INTERVAL 600
 #define REST_INTERVAL_INCREMENT 60
+
+#define WARNING_VIBRATION_TIME 9
 
 #define COUNTDOWN_STR_LENGTH 6
 
 static int WORK_INTERVAL;
-static int REST_INTERVAL;
 static int STARTING_WORK_INTERVAL;
+
+static int REST_INTERVAL;
 static int STARTING_REST_INTERVAL;
+
+static int WARNING_VIBRATION;
 
 static Window *s_main_window;
 static Window *s_menu_window;
@@ -47,6 +54,11 @@ static void init_settings() {
        persist_exists(PERSIST_REST_INTERVAL) ?
            persist_read_int(PERSIST_REST_INTERVAL) :
            DEFAULT_REST_INTERVAL
+   );
+   WARNING_VIBRATION = (
+       persist_exists(PERSIST_WARNING_VIBRATION) ?
+           persist_read_int(PERSIST_WARNING_VIBRATION) :
+           DEFAULT_WARNING_VIBRATION
    );
 }
 
@@ -93,6 +105,14 @@ static void update_rest_interval(int index, void *context) {
     layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
+static void update_warning_vibration(int index, void *context) {
+    WARNING_VIBRATION = !WARNING_VIBRATION;
+
+    s_menu_items[2].subtitle = WARNING_VIBRATION ? "Yes" : "No";
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
 static void build_menu() {
     static char work_countdown_str[COUNTDOWN_STR_LENGTH];
     static char rest_countdown_str[COUNTDOWN_STR_LENGTH];
@@ -106,6 +126,11 @@ static void build_menu() {
         .title = "Rest Interval",
         .subtitle = format_countdown_time(REST_INTERVAL, rest_countdown_str),
         .callback = update_rest_interval
+    };
+    s_menu_items[2] = (SimpleMenuItem) {
+        .title = "Warning vibe?",
+        .subtitle = WARNING_VIBRATION ? "Yes" : "No",
+        .callback = update_warning_vibration
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -160,6 +185,10 @@ static void update_countdown_time() {
         );
         --s_countdown_seconds;
     }
+
+    if (s_countdown_seconds == WARNING_VIBRATION_TIME) {
+        vibes_double_pulse();
+    }
 }
 
 static void update_rest_mode(bool force) {
@@ -190,6 +219,7 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void persist_data() {
     persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
     persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
+    persist_write_bool(PERSIST_WARNING_VIBRATION, WARNING_VIBRATION);
 }
 
 static void main_window_load(Window *window) {
