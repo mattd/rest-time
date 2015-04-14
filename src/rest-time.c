@@ -9,6 +9,14 @@
 #define NUM_MENU_SECTIONS 1
 #define NUM_MENU_ITEMS 2
 
+#define MAX_WORK_INTERVAL 3600
+#define MAX_REST_INTERVAL 600
+
+#define WORK_INTERVAL_INCREMENT 300
+#define REST_INTERVAL_INCREMENT 60
+
+#define COUNTDOWN_STR_LENGTH 6
+
 static int WORK_INTERVAL;
 static int REST_INTERVAL;
 static int STARTING_WORK_INTERVAL;
@@ -52,12 +60,12 @@ static char* format_countdown_time(int countdown_time, char* str) {
 }
 
 static void update_work_interval(int index, void *context) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
 
-    if (WORK_INTERVAL == 3600) {
-        WORK_INTERVAL = 300;
+    if (WORK_INTERVAL == MAX_WORK_INTERVAL) {
+        WORK_INTERVAL = WORK_INTERVAL_INCREMENT;
     } else {
-        WORK_INTERVAL += 300;
+        WORK_INTERVAL += WORK_INTERVAL_INCREMENT;
     }
 
     s_menu_items[0].subtitle = format_countdown_time(
@@ -69,12 +77,12 @@ static void update_work_interval(int index, void *context) {
 }
 
 static void update_rest_interval(int index, void *context) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
 
-    if (REST_INTERVAL == 600) {
-        REST_INTERVAL = 60;
+    if (REST_INTERVAL == MAX_REST_INTERVAL) {
+        REST_INTERVAL = REST_INTERVAL_INCREMENT;
     } else {
-        REST_INTERVAL += 60;
+        REST_INTERVAL += REST_INTERVAL_INCREMENT;
     }
 
     s_menu_items[1].subtitle = format_countdown_time(
@@ -86,8 +94,8 @@ static void update_rest_interval(int index, void *context) {
 }
 
 static void build_menu() {
-    static char work_countdown_str[6];
-    static char rest_countdown_str[6];
+    static char work_countdown_str[COUNTDOWN_STR_LENGTH];
+    static char rest_countdown_str[COUNTDOWN_STR_LENGTH];
 
     s_menu_items[0] = (SimpleMenuItem) {
         .title = "Work Interval",
@@ -143,7 +151,7 @@ static void update_clock_time() {
 }
 
 static void update_countdown_time() {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
 
     if (!s_countdown_paused) {
         text_layer_set_text(
@@ -185,7 +193,7 @@ static void persist_data() {
 }
 
 static void main_window_load(Window *window) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
 
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
@@ -246,7 +254,7 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
 
     if (
         STARTING_REST_INTERVAL != REST_INTERVAL ||
@@ -271,7 +279,7 @@ static void select_single_click_handler (ClickRecognizerRef recognizer,
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
                                      void *context) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
     s_countdown_seconds = WORK_INTERVAL;
     s_in_rest_mode = false;
     update_rest_mode(true);
@@ -283,7 +291,7 @@ static void up_single_click_handler (ClickRecognizerRef recognizer,
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
                                        void *context) {
-    static char countdown_str[6];
+    static char countdown_str[COUNTDOWN_STR_LENGTH];
     s_countdown_seconds = REST_INTERVAL;
     s_in_rest_mode = true;
     update_rest_mode(true);
