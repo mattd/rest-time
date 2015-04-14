@@ -4,7 +4,7 @@
     "longName": "Rest Time",
     "companyName": "Matt Dawson",
     "versionCode": 1,
-    "versionLabel": "1.0",
+    "versionLabel": "1.1",
     "sdkVersion": "3",
     "targetPlatforms": ["aplite", "basalt"],
     "watchapp": {
@@ -14,6 +14,13 @@
         "dummy": 0
     },
     "resources": {
-        "media": []
+        "media": [
+            {
+                "menuIcon": true,
+                "type": "png",
+                "name": "IMAGE_MENU_ICON",
+                "file": "images/menu_icon.png"
+            }
+        ]
     }
 }
