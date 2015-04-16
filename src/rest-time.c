@@ -27,7 +27,7 @@ static int STARTING_WORK_INTERVAL;
 static int REST_INTERVAL;
 static int STARTING_REST_INTERVAL;
 
-static int WARNING_VIBRATION;
+static bool WARNING_VIBRATION;
 
 static Window *s_main_window;
 static Window *s_menu_window;
@@ -58,7 +58,7 @@ static void init_settings() {
    );
    WARNING_VIBRATION = (
        persist_exists(PERSIST_WARNING_VIBRATION) ?
-           persist_read_int(PERSIST_WARNING_VIBRATION) :
+           persist_read_bool(PERSIST_WARNING_VIBRATION) :
            DEFAULT_WARNING_VIBRATION
    );
 }
@@ -182,6 +182,21 @@ static void update_clock_time() {
     text_layer_set_text(s_clock_layer, buffer);
 }
 
+static void update_rest_mode(bool force) {
+    if (s_countdown_seconds == 0 || force == true) {
+        if (s_in_rest_mode == false) {
+            s_countdown_seconds = REST_INTERVAL;
+            s_in_rest_mode = true;
+            vibes_double_pulse();
+        } else {
+            s_countdown_seconds = WORK_INTERVAL;
+            s_in_rest_mode = false;
+            vibes_short_pulse();
+        }
+        set_colors();
+    }
+}
+
 static void update_countdown_time() {
     static char countdown_str[COUNTDOWN_STR_LENGTH];
 
@@ -195,21 +210,6 @@ static void update_countdown_time() {
 
     if (s_countdown_seconds == WARNING_VIBRATION_TIME && !s_in_rest_mode) {
         vibes_double_pulse();
-    }
-}
-
-static void update_rest_mode(bool force) {
-    if (s_countdown_seconds == 0 || force == true) {
-        if (s_in_rest_mode == false) {
-            s_countdown_seconds = REST_INTERVAL;
-            s_in_rest_mode = true;
-            vibes_double_pulse();
-        } else {
-            s_countdown_seconds = WORK_INTERVAL;
-            s_in_rest_mode = false;
-            vibes_short_pulse();
-        }
-        set_colors();
     }
 }
 
@@ -307,10 +307,13 @@ static void menu_window_unload(Window *window) {
         s_countdown_paused = true;
         s_countdown_seconds = WORK_INTERVAL;
         s_in_rest_mode = false;
+
         text_layer_set_text(
             s_countdown_layer,
             format_countdown_time(s_countdown_seconds, countdown_str)
         );
+        text_layer_set_text(s_paused_indicator_layer, "Ready");
+
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
