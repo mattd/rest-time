@@ -27,7 +27,7 @@ static int STARTING_WORK_INTERVAL;
 static int REST_INTERVAL;
 static int STARTING_REST_INTERVAL;
 
-static int WARNING_VIBRATION;
+static bool WARNING_VIBRATION;
 
 static Window *s_main_window;
 static Window *s_menu_window;
@@ -58,7 +58,7 @@ static void init_settings() {
    );
    WARNING_VIBRATION = (
        persist_exists(PERSIST_WARNING_VIBRATION) ?
-           persist_read_int(PERSIST_WARNING_VIBRATION) :
+           persist_read_bool(PERSIST_WARNING_VIBRATION) :
            DEFAULT_WARNING_VIBRATION
    );
 }
