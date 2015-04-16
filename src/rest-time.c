@@ -307,10 +307,13 @@ static void menu_window_unload(Window *window) {
         s_countdown_paused = true;
         s_countdown_seconds = WORK_INTERVAL;
         s_in_rest_mode = false;
+
         text_layer_set_text(
             s_countdown_layer,
             format_countdown_time(s_countdown_seconds, countdown_str)
         );
+        text_layer_set_text(s_paused_indicator_layer, "Ready");
+
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
