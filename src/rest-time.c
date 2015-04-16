@@ -2,31 +2,39 @@
 
 #define PERSIST_WORK_INTERVAL 10
 #define PERSIST_REST_INTERVAL 20
+#define PERSIST_WARNING_VIBRATION 30
 
 #define DEFAULT_WORK_INTERVAL 1500
 #define DEFAULT_REST_INTERVAL 120
+#define DEFAULT_WARNING_VIBRATION false
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_MENU_ITEMS 2
+#define NUM_MENU_ITEMS 3
 
 #define MAX_WORK_INTERVAL 3600
-#define MAX_REST_INTERVAL 600
-
 #define WORK_INTERVAL_INCREMENT 300
+
+#define MAX_REST_INTERVAL 600
 #define REST_INTERVAL_INCREMENT 60
+
+#define WARNING_VIBRATION_TIME 9
 
 #define COUNTDOWN_STR_LENGTH 6
 
 static int WORK_INTERVAL;
-static int REST_INTERVAL;
 static int STARTING_WORK_INTERVAL;
+
+static int REST_INTERVAL;
 static int STARTING_REST_INTERVAL;
+
+static int WARNING_VIBRATION;
 
 static Window *s_main_window;
 static Window *s_menu_window;
 
 static TextLayer *s_clock_layer;
 static TextLayer *s_countdown_layer;
+static TextLayer *s_paused_indicator_layer;
 
 static SimpleMenuLayer *s_simple_menu_layer;
 static SimpleMenuSection s_menu_sections[NUM_MENU_SECTIONS];
@@ -47,6 +55,11 @@ static void init_settings() {
        persist_exists(PERSIST_REST_INTERVAL) ?
            persist_read_int(PERSIST_REST_INTERVAL) :
            DEFAULT_REST_INTERVAL
+   );
+   WARNING_VIBRATION = (
+       persist_exists(PERSIST_WARNING_VIBRATION) ?
+           persist_read_int(PERSIST_WARNING_VIBRATION) :
+           DEFAULT_WARNING_VIBRATION
    );
 }
 
@@ -93,6 +106,14 @@ static void update_rest_interval(int index, void *context) {
     layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
+static void update_warning_vibration(int index, void *context) {
+    WARNING_VIBRATION = !WARNING_VIBRATION;
+
+    s_menu_items[2].subtitle = WARNING_VIBRATION ? "On" : "Off";
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
 static void build_menu() {
     static char work_countdown_str[COUNTDOWN_STR_LENGTH];
     static char rest_countdown_str[COUNTDOWN_STR_LENGTH];
@@ -106,6 +127,11 @@ static void build_menu() {
         .title = "Rest Interval",
         .subtitle = format_countdown_time(REST_INTERVAL, rest_countdown_str),
         .callback = update_rest_interval
+    };
+    s_menu_items[2] = (SimpleMenuItem) {
+        .title = "Warning Vibe",
+        .subtitle = WARNING_VIBRATION ? "On" : "Off",
+        .callback = update_warning_vibration
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -123,6 +149,9 @@ static void set_colors() {
 
         text_layer_set_background_color(s_countdown_layer, GColorWhite);
         text_layer_set_text_color(s_countdown_layer, GColorBlack);
+
+        text_layer_set_background_color(s_paused_indicator_layer, GColorWhite);
+        text_layer_set_text_color(s_paused_indicator_layer, GColorBlack);
     } else {
         window_set_background_color(s_main_window, GColorBlack);
 
@@ -131,6 +160,9 @@ static void set_colors() {
 
         text_layer_set_background_color(s_countdown_layer, GColorBlack);
         text_layer_set_text_color(s_countdown_layer, GColorWhite);
+
+        text_layer_set_background_color(s_paused_indicator_layer, GColorBlack);
+        text_layer_set_text_color(s_paused_indicator_layer, GColorWhite);
     }
 }
 
@@ -159,6 +191,10 @@ static void update_countdown_time() {
             format_countdown_time(s_countdown_seconds, countdown_str)
         );
         --s_countdown_seconds;
+    }
+
+    if (s_countdown_seconds == WARNING_VIBRATION_TIME && !s_in_rest_mode) {
+        vibes_double_pulse();
     }
 }
 
@@ -190,6 +226,7 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void persist_data() {
     persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
     persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
+    persist_write_bool(PERSIST_WARNING_VIBRATION, WARNING_VIBRATION);
 }
 
 static void main_window_load(Window *window) {
@@ -197,6 +234,7 @@ static void main_window_load(Window *window) {
 
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
+    s_paused_indicator_layer = text_layer_create(GRect(5, 34, 60, 16));
 
     text_layer_set_font(
         s_clock_layer,
@@ -217,6 +255,10 @@ static void main_window_load(Window *window) {
         window_get_root_layer(window),
         text_layer_get_layer(s_countdown_layer)
     );
+    layer_add_child(
+        window_get_root_layer(window),
+        text_layer_get_layer(s_paused_indicator_layer)
+    );
 
     update_clock_time();
     update_countdown_time();
@@ -225,11 +267,13 @@ static void main_window_load(Window *window) {
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
+    text_layer_set_text(s_paused_indicator_layer, "Ready");
 }
 
 static void main_window_unload(Window *window) {
     text_layer_destroy(s_clock_layer);
     text_layer_destroy(s_countdown_layer);
+    text_layer_destroy(s_paused_indicator_layer);
 }
 
 static void menu_window_load(Window *window) {
@@ -275,6 +319,12 @@ static void menu_window_unload(Window *window) {
 static void select_single_click_handler (ClickRecognizerRef recognizer,
                                          void *context) {
     s_countdown_paused = !s_countdown_paused;
+
+    if (s_countdown_paused) {
+        text_layer_set_text(s_paused_indicator_layer, "Paused");
+    } else {
+        text_layer_set_text(s_paused_indicator_layer, "");
+    }
 }
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
