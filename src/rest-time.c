@@ -182,6 +182,21 @@ static void update_clock_time() {
     text_layer_set_text(s_clock_layer, buffer);
 }
 
+static void update_rest_mode(bool force) {
+    if (s_countdown_seconds == 0 || force == true) {
+        if (s_in_rest_mode == false) {
+            s_countdown_seconds = REST_INTERVAL;
+            s_in_rest_mode = true;
+            vibes_double_pulse();
+        } else {
+            s_countdown_seconds = WORK_INTERVAL;
+            s_in_rest_mode = false;
+            vibes_short_pulse();
+        }
+        set_colors();
+    }
+}
+
 static void update_countdown_time() {
     static char countdown_str[COUNTDOWN_STR_LENGTH];
 
@@ -195,21 +210,6 @@ static void update_countdown_time() {
 
     if (s_countdown_seconds == WARNING_VIBRATION_TIME && !s_in_rest_mode) {
         vibes_double_pulse();
-    }
-}
-
-static void update_rest_mode(bool force) {
-    if (s_countdown_seconds == 0 || force == true) {
-        if (s_in_rest_mode == false) {
-            s_countdown_seconds = REST_INTERVAL;
-            s_in_rest_mode = true;
-            vibes_double_pulse();
-        } else {
-            s_countdown_seconds = WORK_INTERVAL;
-            s_in_rest_mode = false;
-            vibes_short_pulse();
-        }
-        set_colors();
     }
 }
 
