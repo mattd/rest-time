@@ -208,7 +208,11 @@ static void update_countdown_time() {
         --s_countdown_seconds;
     }
 
-    if (s_countdown_seconds == WARNING_VIBRATION_TIME && !s_in_rest_mode) {
+    if (
+        WARNING_VIBRATION &&
+        s_countdown_seconds == WARNING_VIBRATION_TIME &&
+        !s_in_rest_mode
+    ) {
         vibes_double_pulse();
     }
 }
