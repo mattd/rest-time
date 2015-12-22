@@ -19,7 +19,7 @@
 
 #define WARNING_VIBRATION_TIME 9
 
-#define COUNTDOWN_STR_LENGTH 6
+#define TIME_STR_LENGTH 6
 
 static int WORK_INTERVAL;
 static int STARTING_WORK_INTERVAL;
@@ -67,13 +67,13 @@ static char* format_countdown_time(int countdown_time, char* str) {
     int seconds = countdown_time % 60;
     int minutes = countdown_time / 60;
 
-    snprintf(str, sizeof("00:00"), "%01d:%02d", minutes, seconds);
+    snprintf(str, TIME_STR_LENGTH, "%01d:%02d", minutes, seconds);
 
     return str;
 }
 
 static void update_work_interval(int index, void *context) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
 
     if (WORK_INTERVAL == MAX_WORK_INTERVAL) {
         WORK_INTERVAL = WORK_INTERVAL_INCREMENT;
@@ -90,7 +90,7 @@ static void update_work_interval(int index, void *context) {
 }
 
 static void update_rest_interval(int index, void *context) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
 
     if (REST_INTERVAL == MAX_REST_INTERVAL) {
         REST_INTERVAL = REST_INTERVAL_INCREMENT;
@@ -115,8 +115,8 @@ static void update_warning_vibration(int index, void *context) {
 }
 
 static void build_menu() {
-    static char work_countdown_str[COUNTDOWN_STR_LENGTH];
-    static char rest_countdown_str[COUNTDOWN_STR_LENGTH];
+    static char work_countdown_str[TIME_STR_LENGTH];
+    static char rest_countdown_str[TIME_STR_LENGTH];
 
     s_menu_items[0] = (SimpleMenuItem) {
         .title = "Work Interval",
@@ -171,12 +171,12 @@ static void update_clock_time() {
 
     struct tm *tick_time = localtime(&temp);
 
-    static char buffer[] = "00:00";
+    static char *buffer = "00:00";
 
     if (clock_is_24h_style() == true) {
-        strftime(buffer, sizeof("00:00"), "%H:%M", tick_time);
+        strftime(buffer, TIME_STR_LENGTH, "%H:%M", tick_time);
     } else {
-        strftime(buffer, sizeof("00:00"), "%I:%M", tick_time);
+        strftime(buffer, TIME_STR_LENGTH, "%I:%M", tick_time);
     }
 
     text_layer_set_text(s_clock_layer, buffer);
@@ -198,7 +198,7 @@ static void update_rest_mode(bool force) {
 }
 
 static void update_countdown_time() {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
 
     if (!s_countdown_paused) {
         text_layer_set_text(
@@ -234,7 +234,7 @@ static void persist_data() {
 }
 
 static void main_window_load(Window *window) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
 
     s_clock_layer = text_layer_create(GRect(5, 85, 144, 50));
     s_countdown_layer = text_layer_create(GRect(5, 50, 144, 42));
@@ -302,7 +302,7 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
 
     if (
         STARTING_REST_INTERVAL != REST_INTERVAL ||
@@ -336,7 +336,7 @@ static void select_single_click_handler (ClickRecognizerRef recognizer,
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
                                      void *context) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
     s_countdown_seconds = WORK_INTERVAL;
     s_in_rest_mode = false;
     update_rest_mode(true);
@@ -348,7 +348,7 @@ static void up_single_click_handler (ClickRecognizerRef recognizer,
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
                                        void *context) {
-    static char countdown_str[COUNTDOWN_STR_LENGTH];
+    static char countdown_str[TIME_STR_LENGTH];
     s_countdown_seconds = REST_INTERVAL;
     s_in_rest_mode = true;
     update_rest_mode(true);
@@ -398,7 +398,9 @@ static void init() {
     // Create and configure main window.
     s_main_window = window_create();
 
+    #ifdef PBL_SDK_2
     window_set_fullscreen(s_main_window, true);
+    #endif
 
     window_set_window_handlers(s_main_window, (WindowHandlers) {
         .load = main_window_load,
