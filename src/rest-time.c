@@ -398,7 +398,9 @@ static void init() {
     // Create and configure main window.
     s_main_window = window_create();
 
+    #ifdef PBL_SDK_2
     window_set_fullscreen(s_main_window, true);
+    #endif
 
     window_set_window_handlers(s_main_window, (WindowHandlers) {
         .load = main_window_load,
