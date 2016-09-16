@@ -205,36 +205,41 @@ static void update_clock_time() {
     text_layer_set_text(s_clock_layer, buffer);
 }
 
-static void update_rest_mode(bool force) {
-    if ((s_countdown_seconds == 0 && !OVERRUNABLE) || force == true) {
-        if (s_in_rest_mode == false) {
-            s_countdown_seconds = REST_INTERVAL;
-            s_in_rest_mode = true;
-            vibes_double_pulse();
-        } else {
-            s_countdown_seconds = WORK_INTERVAL;
-            s_in_rest_mode = false;
-            vibes_short_pulse();
-        }
-        set_colors();
+static void start_mode(bool is_rest_mode) {
+    s_in_rest_mode = is_rest_mode;
+    set_colors();
+    if (is_rest_mode) {
+        s_countdown_seconds = REST_INTERVAL;
+        vibes_double_pulse();
+    } else {
+        s_countdown_seconds = WORK_INTERVAL;
+        vibes_short_pulse();
     }
 }
 
-static void update_countdown_time() {
-    static char countdown_str[TIME_STR_LENGTH];
+static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+    if (units_changed | MINUTE_UNIT) {
+        update_clock_time();
+    }
+    
+    if (s_countdown_paused) {
+        return;
+    }
 
-    if (!s_countdown_paused) {
-        text_layer_set_text(
-            s_countdown_layer,
-            format_countdown_time(s_countdown_seconds, countdown_str)
-        );
+    if (s_countdown_seconds == 0 && !OVERRUNABLE) {
+        start_mode(!s_in_rest_mode);
+    } else {
+
         --s_countdown_seconds; 
-        if (s_countdown_seconds < 0) {
-            text_layer_set_text(s_paused_indicator_layer, "Overrun");
-            if (s_countdown_seconds % 60 == 0) {
-                vibes_short_pulse();
-            }
+        update_countdown_layer();
+        if (s_countdown_seconds == -1) {
+            update_pause_indicator_layer();
         }
+
+        if (s_countdown_seconds <= 0 && s_countdown_seconds % 60 == 0) {
+            vibes_short_pulse();
+        }
+
         if (
             WARNING_VIBRATION &&
             s_countdown_seconds == WARNING_VIBRATION_TIME &&
@@ -245,17 +250,7 @@ static void update_countdown_time() {
     }
 }
 
-static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-    update_rest_mode(false);
-
-    update_countdown_time();
-
-    if (units_changed | MINUTE_UNIT) {
-        update_clock_time();
-    }
-}
-
-static void persist_data() {
+static void persist_config() {
     persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
     persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
     persist_write_bool(PERSIST_WARNING_VIBRATION, WARNING_VIBRATION);
@@ -294,13 +289,11 @@ static void main_window_load(Window *window) {
     );
 
     update_clock_time();
-    update_countdown_time();
 
     text_layer_set_text(
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
-    text_layer_set_text(s_paused_indicator_layer, "Ready");
 }
 
 static void main_window_unload(Window *window) {
@@ -331,7 +324,7 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
-    static char countdown_str[TIME_STR_LENGTH];
+    persist_config();
 
     if (
         STARTING_REST_INTERVAL != REST_INTERVAL ||
@@ -341,52 +334,55 @@ static void menu_window_unload(Window *window) {
         s_countdown_seconds = WORK_INTERVAL;
         s_in_rest_mode = false;
 
-        text_layer_set_text(
-            s_countdown_layer,
-            format_countdown_time(s_countdown_seconds, countdown_str)
-        );
-        text_layer_set_text(s_paused_indicator_layer, "Ready");
-
+        update_countdown_layer();
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
 }
 
+static void update_countdown_layer() {
+    static char countdown_str[TIME_STR_LENGTH];    
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds, countdown_str)
+    );
+}
+
+static void update_pause_indicator_layer() {
+    if (s_countdown_paused) {
+        int interval = s_in_rest_mode ? REST_INTERVAL : WORK_INTERVAL;
+        if (s_countdown_seconds == interval) {
+            text_layer_set_text(s_paused_indicator_layer, "Ready");
+        } else {
+            text_layer_set_text(s_paused_indicator_layer, "Paused");
+        }
+    } else {
+        if (s_countdown_seconds < 0) {
+            text_layer_set_text(s_paused_indicator_layer, "Overrun");
+        } else {
+            text_layer_set_text(s_paused_indicator_layer, "");
+        }      
+    }
+}
+
 static void select_single_click_handler (ClickRecognizerRef recognizer,
                                          void *context) {
     s_countdown_paused = !s_countdown_paused;
-
-    if (s_countdown_paused) {
-        text_layer_set_text(s_paused_indicator_layer, "Paused");
-    } else {
-        text_layer_set_text(s_paused_indicator_layer, "");
-    }
+    update_pause_indicator_layer();
 }
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
                                      void *context) {
-    static char countdown_str[TIME_STR_LENGTH];
-    s_countdown_seconds = WORK_INTERVAL;
-    s_in_rest_mode = false;
-    update_rest_mode(true);
-    text_layer_set_text(
-        s_countdown_layer,
-        format_countdown_time(s_countdown_seconds, countdown_str)
-    );
-    text_layer_set_text(s_paused_indicator_layer, "");
+    start_mode(true);
+    update_countdown_layer();
+    update_pause_indicator_layer();
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
                                        void *context) {
-    static char countdown_str[TIME_STR_LENGTH];
-    s_countdown_seconds = REST_INTERVAL;
-    s_in_rest_mode = true;
-    update_rest_mode(true);
-    text_layer_set_text(
-        s_countdown_layer,
-        format_countdown_time(s_countdown_seconds, countdown_str)
-    );
-    text_layer_set_text(s_paused_indicator_layer, "");
+    start_mode(false);
+    update_countdown_layer();
+    update_pause_indicator_layer();
 }
 
 static void select_multi_click_handler (ClickRecognizerRef recognizer,
@@ -456,7 +452,6 @@ static void init() {
 }
 
 static void deinit() {
-    persist_data();
     window_destroy(s_main_window);
     window_destroy(s_menu_window);
 }
