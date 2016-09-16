@@ -153,7 +153,7 @@ static void build_menu() {
     };
     s_menu_items[3] = (SimpleMenuItem) {
         .title = "Overrun",
-        .subtitle = WARNING_VIBRATION ? "On" : "Off",
+        .subtitle = OVERRUNABLE ? "On" : "Off",
         .callback = update_overrun
     };
     s_menu_sections[0] = (SimpleMenuSection) {
@@ -205,6 +205,31 @@ static void update_clock_time() {
     text_layer_set_text(s_clock_layer, buffer);
 }
 
+static void update_countdown_layer() {
+    static char countdown_str[TIME_STR_LENGTH];    
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds, countdown_str)
+    );
+}
+
+static void update_pause_indicator_layer() {
+    if (s_countdown_paused) {
+        int interval = s_in_rest_mode ? REST_INTERVAL : WORK_INTERVAL;
+        if (s_countdown_seconds == interval) {
+            text_layer_set_text(s_paused_indicator_layer, "Ready");
+        } else {
+            text_layer_set_text(s_paused_indicator_layer, "Paused");
+        }
+    } else {
+        if (s_countdown_seconds < 0) {
+            text_layer_set_text(s_paused_indicator_layer, "Overrun");
+        } else {
+            text_layer_set_text(s_paused_indicator_layer, "");
+        }      
+    }
+}
+
 static void start_mode(bool is_rest_mode) {
     s_in_rest_mode = is_rest_mode;
     set_colors();
@@ -215,6 +240,7 @@ static void start_mode(bool is_rest_mode) {
         s_countdown_seconds = WORK_INTERVAL;
         vibes_short_pulse();
     }
+    s_countdown_paused = false;
 }
 
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -338,31 +364,6 @@ static void menu_window_unload(Window *window) {
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
-}
-
-static void update_countdown_layer() {
-    static char countdown_str[TIME_STR_LENGTH];    
-    text_layer_set_text(
-        s_countdown_layer,
-        format_countdown_time(s_countdown_seconds, countdown_str)
-    );
-}
-
-static void update_pause_indicator_layer() {
-    if (s_countdown_paused) {
-        int interval = s_in_rest_mode ? REST_INTERVAL : WORK_INTERVAL;
-        if (s_countdown_seconds == interval) {
-            text_layer_set_text(s_paused_indicator_layer, "Ready");
-        } else {
-            text_layer_set_text(s_paused_indicator_layer, "Paused");
-        }
-    } else {
-        if (s_countdown_seconds < 0) {
-            text_layer_set_text(s_paused_indicator_layer, "Overrun");
-        } else {
-            text_layer_set_text(s_paused_indicator_layer, "");
-        }      
-    }
 }
 
 static void select_single_click_handler (ClickRecognizerRef recognizer,
