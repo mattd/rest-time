@@ -3,13 +3,15 @@
 #define PERSIST_WORK_INTERVAL 10
 #define PERSIST_REST_INTERVAL 20
 #define PERSIST_WARNING_VIBRATION 30
+#define PERSIST_OVERRUNABLE 40
 
 #define DEFAULT_WORK_INTERVAL 1500
 #define DEFAULT_REST_INTERVAL 120
 #define DEFAULT_WARNING_VIBRATION false
+#define DEFAULT_OVERRUNABLE false
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_MENU_ITEMS 3
+#define NUM_MENU_ITEMS 4
 
 #define MAX_WORK_INTERVAL 3600
 #define WORK_INTERVAL_INCREMENT 300
@@ -28,6 +30,8 @@ static int REST_INTERVAL;
 static int STARTING_REST_INTERVAL;
 
 static bool WARNING_VIBRATION;
+
+static bool OVERRUNABLE;
 
 static Window *s_main_window;
 static Window *s_menu_window;
@@ -61,9 +65,15 @@ static void init_settings() {
            persist_read_bool(PERSIST_WARNING_VIBRATION) :
            DEFAULT_WARNING_VIBRATION
    );
+   OVERRUNABLE = (
+       persist_exists(PERSIST_OVERRUNABLE) ?
+           persist_read_bool(PERSIST_OVERRUNABLE) :
+           DEFAULT_OVERRUNABLE
+   );
 }
 
 static char* format_countdown_time(int countdown_time, char* str) {
+    countdown_time = abs(countdown_time);
     int seconds = countdown_time % 60;
     int minutes = countdown_time / 60;
 
@@ -114,6 +124,14 @@ static void update_warning_vibration(int index, void *context) {
     layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
+static void update_overrun(int index, void *context) {
+    OVERRUNABLE = !OVERRUNABLE;
+
+    s_menu_items[3].subtitle = OVERRUNABLE ? "On" : "Off";
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
 static void build_menu() {
     static char work_countdown_str[TIME_STR_LENGTH];
     static char rest_countdown_str[TIME_STR_LENGTH];
@@ -132,6 +150,11 @@ static void build_menu() {
         .title = "Warning Vibe",
         .subtitle = WARNING_VIBRATION ? "On" : "Off",
         .callback = update_warning_vibration
+    };
+    s_menu_items[3] = (SimpleMenuItem) {
+        .title = "Overrun",
+        .subtitle = WARNING_VIBRATION ? "On" : "Off",
+        .callback = update_overrun
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -183,7 +206,7 @@ static void update_clock_time() {
 }
 
 static void update_rest_mode(bool force) {
-    if (s_countdown_seconds == 0 || force == true) {
+    if ((s_countdown_seconds == 0 && !OVERRUNABLE) || force == true) {
         if (s_in_rest_mode == false) {
             s_countdown_seconds = REST_INTERVAL;
             s_in_rest_mode = true;
@@ -205,15 +228,20 @@ static void update_countdown_time() {
             s_countdown_layer,
             format_countdown_time(s_countdown_seconds, countdown_str)
         );
-        --s_countdown_seconds;
-    }
-
-    if (
-        WARNING_VIBRATION &&
-        s_countdown_seconds == WARNING_VIBRATION_TIME &&
-        !s_in_rest_mode
-    ) {
-        vibes_double_pulse();
+        --s_countdown_seconds; 
+        if (s_countdown_seconds < 0) {
+            text_layer_set_text(s_paused_indicator_layer, "Overrun");
+            if (s_countdown_seconds % 60 == 0) {
+                vibes_short_pulse();
+            }
+        }
+        if (
+            WARNING_VIBRATION &&
+            s_countdown_seconds == WARNING_VIBRATION_TIME &&
+            !s_in_rest_mode
+        ) {
+            vibes_double_pulse();
+        }
     }
 }
 
@@ -231,6 +259,7 @@ static void persist_data() {
     persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
     persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
     persist_write_bool(PERSIST_WARNING_VIBRATION, WARNING_VIBRATION);
+    persist_write_bool(PERSIST_OVERRUNABLE, OVERRUNABLE);
 }
 
 static void main_window_load(Window *window) {
@@ -344,6 +373,7 @@ static void up_single_click_handler (ClickRecognizerRef recognizer,
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
+    text_layer_set_text(s_paused_indicator_layer, "");
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
@@ -356,6 +386,7 @@ static void down_single_click_handler (ClickRecognizerRef recognizer,
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
+    text_layer_set_text(s_paused_indicator_layer, "");
 }
 
 static void select_multi_click_handler (ClickRecognizerRef recognizer,

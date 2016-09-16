@@ -1,0 +1,32 @@
+{
+    "author": "Leo Liang",
+    "dependencies": {},
+    "keywords": [],
+    "name": "rest-time",
+    "pebble": {
+        "displayName": "Rest Time",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/menu_icon.png",
+                    "menuIcon": true,
+                    "name": "IMAGE_MENU_ICON",
+                    "type": "png"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite",
+            "basalt"
+        ],
+        "uuid": "8d4941e5-3131-46da-a154-252e1a6bd3fe",
+        "watchapp": {
+            "watchface": false
+        }
+    },
+    "version": "2.0.0"
+}
