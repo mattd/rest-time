@@ -17,7 +17,7 @@ tells you rest mode is over.
 By default, it switches between work mode and rest mode when time is up. You can
 enable "overrun" to turn off automatic switch. The top clock display shows a 
 count-up timer when it's overrunning. You need to press up or down button to
-start a new period.
+start a new period. During overrun, it buzzes every minute.
 
 ### Controls
 
