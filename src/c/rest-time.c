@@ -85,9 +85,12 @@ static void init_settings() {
     );
     s_countdown_seconds = (
         persist_exists(PERSIST_COUNTDOWN_EXPIRE) ?
-            persist_read_int(PERSIST_COUNTDOWN_EXPIRE) - time(NULL) :
+            persist_read_int(PERSIST_COUNTDOWN_EXPIRE) :
             WORK_INTERVAL
     );
+    if (s_countdown_seconds > 10000000) {
+        s_countdown_seconds -= time(NULL);
+    }
 }
 
 static char* format_countdown_time(int countdown_time, char* str) {
@@ -270,12 +273,12 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
         return;
     }
 
-    if (s_countdown_seconds == 0 && !OVERRUNABLE) {
+    --s_countdown_seconds; 
+    update_countdown_layer();
+
+    if (s_countdown_seconds <= 0 && !OVERRUNABLE) {
         start_mode(!s_in_rest_mode);
     } else {
-
-        --s_countdown_seconds; 
-        update_countdown_layer();
         if (s_countdown_seconds == -1) {
             update_pause_indicator_layer();
         }
@@ -302,8 +305,9 @@ static void persist_config() {
 }
 
 static void persist_status() {
-    time_t now = time(NULL);
-    persist_write_int(PERSIST_COUNTDOWN_EXPIRE, now + s_countdown_seconds);
+    persist_write_int(
+        PERSIST_COUNTDOWN_EXPIRE, 
+        s_countdown_paused ? s_countdown_seconds : time(NULL) + s_countdown_seconds);
     persist_write_bool(PERSIST_COUNTDOWN_PAUSED, s_countdown_paused);
     persist_write_bool(PERSIST_IN_REST_MODE, s_in_rest_mode);
 }
@@ -339,6 +343,7 @@ static void main_window_load(Window *window) {
         text_layer_get_layer(s_paused_indicator_layer)
     );
 
+    update_pause_indicator_layer();
     update_clock_time();
 
     text_layer_set_text(
@@ -389,6 +394,7 @@ static void menu_window_unload(Window *window) {
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
+    update_pause_indicator_layer();
 }
 
 static void select_single_click_handler (ClickRecognizerRef recognizer,
@@ -481,10 +487,9 @@ static void init() {
 static void deinit() {
     persist_status();
     if (!s_countdown_paused) {
-        int wakeup_time = 
-            (s_countdown_seconds <= 30) ? 
-                time(NULL) + 60 : 
-                time(NULL) + s_countdown_paused - 10;
+        int next_vibra = 
+            (s_countdown_seconds > 0) ? s_countdown_seconds : 60 + s_countdown_seconds % 60;
+        time_t wakeup_time = time(NULL) - 15 + ((next_vibra > 18) ? next_vibra : next_vibra + 60); 
         wakeup_schedule(wakeup_time, 0, false);
     }
     window_destroy(s_main_window);
