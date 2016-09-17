@@ -2,6 +2,14 @@
 
 A Pebble app that reminds you to rest.
 
+### What's new
+
+- v2.1
+  Keep timer running after app exists.
+
+- v2.0
+  Supports overrun.
+
 ### Usage
 
 Simple, really.
@@ -18,6 +26,9 @@ By default, it switches between work mode and rest mode when time is up. You can
 enable "overrun" to turn off automatic switch. The top clock display shows a 
 count-up timer when it's overrunning. You need to press up or down button to
 start a new period. During overrun, it buzzes every minute.
+
+The timer keeps running after app exists. It will wake up at about 15 seconds
+ahead of buzz.
 
 ### Controls
 
