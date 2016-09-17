@@ -1,5 +1,8 @@
 #include <pebble.h>
 
+#define PERSIST_COUNTDOWN_EXPIRE 1
+#define PERSIST_COUNTDOWN_PAUSED 2
+#define PERSIST_IN_REST_MODE 3
 #define PERSIST_WORK_INTERVAL 10
 #define PERSIST_REST_INTERVAL 20
 #define PERSIST_WARNING_VIBRATION 30
@@ -50,26 +53,41 @@ static bool s_countdown_paused = true;
 static int s_countdown_seconds;
 
 static void init_settings() {
-   WORK_INTERVAL = (
-       persist_exists(PERSIST_WORK_INTERVAL) ?
-           persist_read_int(PERSIST_WORK_INTERVAL) :
-           DEFAULT_WORK_INTERVAL
-   );
-   REST_INTERVAL = (
-       persist_exists(PERSIST_REST_INTERVAL) ?
-           persist_read_int(PERSIST_REST_INTERVAL) :
-           DEFAULT_REST_INTERVAL
-   );
-   WARNING_VIBRATION = (
-       persist_exists(PERSIST_WARNING_VIBRATION) ?
-           persist_read_bool(PERSIST_WARNING_VIBRATION) :
-           DEFAULT_WARNING_VIBRATION
-   );
-   OVERRUNABLE = (
-       persist_exists(PERSIST_OVERRUNABLE) ?
-           persist_read_bool(PERSIST_OVERRUNABLE) :
-           DEFAULT_OVERRUNABLE
-   );
+    WORK_INTERVAL = (
+        persist_exists(PERSIST_WORK_INTERVAL) ?
+            persist_read_int(PERSIST_WORK_INTERVAL) :
+            DEFAULT_WORK_INTERVAL
+    );
+    REST_INTERVAL = (
+        persist_exists(PERSIST_REST_INTERVAL) ?
+            persist_read_int(PERSIST_REST_INTERVAL) :
+            DEFAULT_REST_INTERVAL
+    );
+    WARNING_VIBRATION = (
+        persist_exists(PERSIST_WARNING_VIBRATION) ?
+            persist_read_bool(PERSIST_WARNING_VIBRATION) :
+            DEFAULT_WARNING_VIBRATION
+    );
+    OVERRUNABLE = (
+        persist_exists(PERSIST_OVERRUNABLE) ?
+            persist_read_bool(PERSIST_OVERRUNABLE) :
+            DEFAULT_OVERRUNABLE
+    );
+    s_in_rest_mode = (
+        persist_exists(PERSIST_IN_REST_MODE) ?
+            persist_read_bool(PERSIST_IN_REST_MODE) :
+            false 
+    );
+    s_countdown_paused = (
+        persist_exists(PERSIST_COUNTDOWN_PAUSED) ?
+            persist_read_bool(PERSIST_COUNTDOWN_PAUSED) :
+            true
+    );
+    s_countdown_seconds = (
+        persist_exists(PERSIST_COUNTDOWN_EXPIRE) ?
+            persist_read_int(PERSIST_COUNTDOWN_EXPIRE) - time(NULL) :
+            WORK_INTERVAL
+    );
 }
 
 static char* format_countdown_time(int countdown_time, char* str) {
@@ -283,6 +301,13 @@ static void persist_config() {
     persist_write_bool(PERSIST_OVERRUNABLE, OVERRUNABLE);
 }
 
+static void persist_status() {
+    time_t now = time(NULL);
+    persist_write_int(PERSIST_COUNTDOWN_EXPIRE, now + s_countdown_seconds);
+    persist_write_bool(PERSIST_COUNTDOWN_PAUSED, s_countdown_paused);
+    persist_write_bool(PERSIST_IN_REST_MODE, s_in_rest_mode);
+}
+
 static void main_window_load(Window *window) {
     static char countdown_str[TIME_STR_LENGTH];
 
@@ -415,12 +440,13 @@ static void click_config_provider (Window *window) {
 }
 
 static void init() {
+    wakeup_cancel_all();
+
     // Initialize core.
     init_settings();
     build_menu();
 
     // Setup clock updates.
-    s_countdown_seconds = WORK_INTERVAL;
     tick_timer_service_subscribe(SECOND_UNIT, time_tick_handler);
 
     // Create and configure main window.
@@ -453,6 +479,14 @@ static void init() {
 }
 
 static void deinit() {
+    persist_status();
+    if (!s_countdown_paused) {
+        int wakeup_time = 
+            (s_countdown_seconds <= 30) ? 
+                time(NULL) + 60 : 
+                time(NULL) + s_countdown_paused - 10;
+        wakeup_schedule(wakeup_time, 0, false);
+    }
     window_destroy(s_main_window);
     window_destroy(s_menu_window);
 }
