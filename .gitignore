@@ -4,6 +4,7 @@
 *.sw[p|o]
 .DS_Store
 __MACOSX
+.vscode
 
 # Ignore build generated files
 build

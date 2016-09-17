@@ -2,6 +2,14 @@
 
 A Pebble app that reminds you to rest.
 
+### What's new
+
+- v2.1
+  Keep timer running after app exists.
+
+- v2.0
+  Supports overrun.
+
 ### Usage
 
 Simple, really.
@@ -13,6 +21,14 @@ configurable (see below). When you're in work mode, the display is white text on
 a black background; when you're in rest mode, the display is black text on a
 white background. A double buzz tells you rest mode has started; a single buzz
 tells you rest mode is over.
+
+By default, it switches between work mode and rest mode when time is up. You can
+enable "overrun" to turn off automatic switch. The top clock display shows a 
+count-up timer when it's overrunning. You need to press up or down button to
+start a new period. During overrun, it buzzes every minute.
+
+The timer keeps running after app exists. It will wake up at about 15 seconds
+ahead of buzz.
 
 ### Controls
 
@@ -36,3 +52,4 @@ tells you rest mode is over.
   increments from 1 to 10 minutes.
 * **Warning Vibe:** Whether to trigger a double buzz warning vibration 10
   seconds before the next rest period begins. Possible values are "On" or "Off".
+* **Overrun:** Timer overruns after time is up.

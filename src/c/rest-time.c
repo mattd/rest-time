@@ -1,15 +1,20 @@
 #include <pebble.h>
 
+#define PERSIST_COUNTDOWN_EXPIRE 1
+#define PERSIST_COUNTDOWN_PAUSED 2
+#define PERSIST_IN_REST_MODE 3
 #define PERSIST_WORK_INTERVAL 10
 #define PERSIST_REST_INTERVAL 20
 #define PERSIST_WARNING_VIBRATION 30
+#define PERSIST_OVERRUNABLE 40
 
 #define DEFAULT_WORK_INTERVAL 1500
 #define DEFAULT_REST_INTERVAL 120
 #define DEFAULT_WARNING_VIBRATION false
+#define DEFAULT_OVERRUNABLE false
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_MENU_ITEMS 3
+#define NUM_MENU_ITEMS 4
 
 #define MAX_WORK_INTERVAL 3600
 #define WORK_INTERVAL_INCREMENT 300
@@ -29,6 +34,8 @@ static int STARTING_REST_INTERVAL;
 
 static bool WARNING_VIBRATION;
 
+static bool OVERRUNABLE;
+
 static Window *s_main_window;
 static Window *s_menu_window;
 
@@ -46,24 +53,48 @@ static bool s_countdown_paused = true;
 static int s_countdown_seconds;
 
 static void init_settings() {
-   WORK_INTERVAL = (
-       persist_exists(PERSIST_WORK_INTERVAL) ?
-           persist_read_int(PERSIST_WORK_INTERVAL) :
-           DEFAULT_WORK_INTERVAL
-   );
-   REST_INTERVAL = (
-       persist_exists(PERSIST_REST_INTERVAL) ?
-           persist_read_int(PERSIST_REST_INTERVAL) :
-           DEFAULT_REST_INTERVAL
-   );
-   WARNING_VIBRATION = (
-       persist_exists(PERSIST_WARNING_VIBRATION) ?
-           persist_read_bool(PERSIST_WARNING_VIBRATION) :
-           DEFAULT_WARNING_VIBRATION
-   );
+    WORK_INTERVAL = (
+        persist_exists(PERSIST_WORK_INTERVAL) ?
+            persist_read_int(PERSIST_WORK_INTERVAL) :
+            DEFAULT_WORK_INTERVAL
+    );
+    REST_INTERVAL = (
+        persist_exists(PERSIST_REST_INTERVAL) ?
+            persist_read_int(PERSIST_REST_INTERVAL) :
+            DEFAULT_REST_INTERVAL
+    );
+    WARNING_VIBRATION = (
+        persist_exists(PERSIST_WARNING_VIBRATION) ?
+            persist_read_bool(PERSIST_WARNING_VIBRATION) :
+            DEFAULT_WARNING_VIBRATION
+    );
+    OVERRUNABLE = (
+        persist_exists(PERSIST_OVERRUNABLE) ?
+            persist_read_bool(PERSIST_OVERRUNABLE) :
+            DEFAULT_OVERRUNABLE
+    );
+    s_in_rest_mode = (
+        persist_exists(PERSIST_IN_REST_MODE) ?
+            persist_read_bool(PERSIST_IN_REST_MODE) :
+            false 
+    );
+    s_countdown_paused = (
+        persist_exists(PERSIST_COUNTDOWN_PAUSED) ?
+            persist_read_bool(PERSIST_COUNTDOWN_PAUSED) :
+            true
+    );
+    s_countdown_seconds = (
+        persist_exists(PERSIST_COUNTDOWN_EXPIRE) ?
+            persist_read_int(PERSIST_COUNTDOWN_EXPIRE) :
+            WORK_INTERVAL
+    );
+    if (s_countdown_seconds > 10000000) {
+        s_countdown_seconds -= time(NULL);
+    }
 }
 
 static char* format_countdown_time(int countdown_time, char* str) {
+    countdown_time = abs(countdown_time);
     int seconds = countdown_time % 60;
     int minutes = countdown_time / 60;
 
@@ -114,6 +145,14 @@ static void update_warning_vibration(int index, void *context) {
     layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
 }
 
+static void update_overrun(int index, void *context) {
+    OVERRUNABLE = !OVERRUNABLE;
+
+    s_menu_items[3].subtitle = OVERRUNABLE ? "On" : "Off";
+
+    layer_mark_dirty(simple_menu_layer_get_layer(s_simple_menu_layer));
+}
+
 static void build_menu() {
     static char work_countdown_str[TIME_STR_LENGTH];
     static char rest_countdown_str[TIME_STR_LENGTH];
@@ -132,6 +171,11 @@ static void build_menu() {
         .title = "Warning Vibe",
         .subtitle = WARNING_VIBRATION ? "On" : "Off",
         .callback = update_warning_vibration
+    };
+    s_menu_items[3] = (SimpleMenuItem) {
+        .title = "Overrun",
+        .subtitle = OVERRUNABLE ? "On" : "Off",
+        .callback = update_overrun
     };
     s_menu_sections[0] = (SimpleMenuSection) {
         .title = "Settings",
@@ -182,55 +226,90 @@ static void update_clock_time() {
     text_layer_set_text(s_clock_layer, buffer);
 }
 
-static void update_rest_mode(bool force) {
-    if (s_countdown_seconds == 0 || force == true) {
-        if (s_in_rest_mode == false) {
-            s_countdown_seconds = REST_INTERVAL;
-            s_in_rest_mode = true;
-            vibes_double_pulse();
+static void update_countdown_layer() {
+    static char countdown_str[TIME_STR_LENGTH];    
+    text_layer_set_text(
+        s_countdown_layer,
+        format_countdown_time(s_countdown_seconds, countdown_str)
+    );
+}
+
+static void update_pause_indicator_layer() {
+    if (s_countdown_paused) {
+        int interval = s_in_rest_mode ? REST_INTERVAL : WORK_INTERVAL;
+        if (s_countdown_seconds == interval) {
+            text_layer_set_text(s_paused_indicator_layer, "Ready");
         } else {
-            s_countdown_seconds = WORK_INTERVAL;
-            s_in_rest_mode = false;
-            vibes_short_pulse();
+            text_layer_set_text(s_paused_indicator_layer, "Paused");
         }
-        set_colors();
+    } else {
+        if (s_countdown_seconds < 0) {
+            text_layer_set_text(s_paused_indicator_layer, "Overrun");
+        } else {
+            text_layer_set_text(s_paused_indicator_layer, "");
+        }      
     }
 }
 
-static void update_countdown_time() {
-    static char countdown_str[TIME_STR_LENGTH];
-
-    if (!s_countdown_paused) {
-        text_layer_set_text(
-            s_countdown_layer,
-            format_countdown_time(s_countdown_seconds, countdown_str)
-        );
-        --s_countdown_seconds;
-    }
-
-    if (
-        WARNING_VIBRATION &&
-        s_countdown_seconds == WARNING_VIBRATION_TIME &&
-        !s_in_rest_mode
-    ) {
+static void start_mode(bool is_rest_mode) {
+    s_in_rest_mode = is_rest_mode;
+    set_colors();
+    if (is_rest_mode) {
+        s_countdown_seconds = REST_INTERVAL;
         vibes_double_pulse();
+    } else {
+        s_countdown_seconds = WORK_INTERVAL;
+        vibes_short_pulse();
     }
+    s_countdown_paused = false;
 }
 
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-    update_rest_mode(false);
-
-    update_countdown_time();
-
     if (units_changed | MINUTE_UNIT) {
         update_clock_time();
     }
+    
+    if (s_countdown_paused) {
+        return;
+    }
+
+    --s_countdown_seconds; 
+    update_countdown_layer();
+
+    if (s_countdown_seconds <= 0 && !OVERRUNABLE) {
+        start_mode(!s_in_rest_mode);
+    } else {
+        if (s_countdown_seconds == -1) {
+            update_pause_indicator_layer();
+        }
+
+        if (s_countdown_seconds <= 0 && s_countdown_seconds % 60 == 0) {
+            vibes_short_pulse();
+        }
+
+        if (
+            WARNING_VIBRATION &&
+            s_countdown_seconds == WARNING_VIBRATION_TIME &&
+            !s_in_rest_mode
+        ) {
+            vibes_double_pulse();
+        }
+    }
 }
 
-static void persist_data() {
+static void persist_config() {
     persist_write_int(PERSIST_WORK_INTERVAL, WORK_INTERVAL);
     persist_write_int(PERSIST_REST_INTERVAL, REST_INTERVAL);
     persist_write_bool(PERSIST_WARNING_VIBRATION, WARNING_VIBRATION);
+    persist_write_bool(PERSIST_OVERRUNABLE, OVERRUNABLE);
+}
+
+static void persist_status() {
+    persist_write_int(
+        PERSIST_COUNTDOWN_EXPIRE, 
+        s_countdown_paused ? s_countdown_seconds : time(NULL) + s_countdown_seconds);
+    persist_write_bool(PERSIST_COUNTDOWN_PAUSED, s_countdown_paused);
+    persist_write_bool(PERSIST_IN_REST_MODE, s_in_rest_mode);
 }
 
 static void main_window_load(Window *window) {
@@ -264,14 +343,13 @@ static void main_window_load(Window *window) {
         text_layer_get_layer(s_paused_indicator_layer)
     );
 
+    update_pause_indicator_layer();
     update_clock_time();
-    update_countdown_time();
 
     text_layer_set_text(
         s_countdown_layer,
         format_countdown_time(s_countdown_seconds, countdown_str)
     );
-    text_layer_set_text(s_paused_indicator_layer, "Ready");
 }
 
 static void main_window_unload(Window *window) {
@@ -302,7 +380,7 @@ static void menu_window_load(Window *window) {
 }
 
 static void menu_window_unload(Window *window) {
-    static char countdown_str[TIME_STR_LENGTH];
+    persist_config();
 
     if (
         STARTING_REST_INTERVAL != REST_INTERVAL ||
@@ -312,50 +390,31 @@ static void menu_window_unload(Window *window) {
         s_countdown_seconds = WORK_INTERVAL;
         s_in_rest_mode = false;
 
-        text_layer_set_text(
-            s_countdown_layer,
-            format_countdown_time(s_countdown_seconds, countdown_str)
-        );
-        text_layer_set_text(s_paused_indicator_layer, "Ready");
-
+        update_countdown_layer();
         set_colors();
     }
     simple_menu_layer_destroy(s_simple_menu_layer);
+    update_pause_indicator_layer();
 }
 
 static void select_single_click_handler (ClickRecognizerRef recognizer,
                                          void *context) {
     s_countdown_paused = !s_countdown_paused;
-
-    if (s_countdown_paused) {
-        text_layer_set_text(s_paused_indicator_layer, "Paused");
-    } else {
-        text_layer_set_text(s_paused_indicator_layer, "");
-    }
+    update_pause_indicator_layer();
 }
 
 static void up_single_click_handler (ClickRecognizerRef recognizer,
                                      void *context) {
-    static char countdown_str[TIME_STR_LENGTH];
-    s_countdown_seconds = WORK_INTERVAL;
-    s_in_rest_mode = false;
-    update_rest_mode(true);
-    text_layer_set_text(
-        s_countdown_layer,
-        format_countdown_time(s_countdown_seconds, countdown_str)
-    );
+    start_mode(true);
+    update_countdown_layer();
+    update_pause_indicator_layer();
 }
 
 static void down_single_click_handler (ClickRecognizerRef recognizer,
                                        void *context) {
-    static char countdown_str[TIME_STR_LENGTH];
-    s_countdown_seconds = REST_INTERVAL;
-    s_in_rest_mode = true;
-    update_rest_mode(true);
-    text_layer_set_text(
-        s_countdown_layer,
-        format_countdown_time(s_countdown_seconds, countdown_str)
-    );
+    start_mode(false);
+    update_countdown_layer();
+    update_pause_indicator_layer();
 }
 
 static void select_multi_click_handler (ClickRecognizerRef recognizer,
@@ -387,12 +446,13 @@ static void click_config_provider (Window *window) {
 }
 
 static void init() {
+    wakeup_cancel_all();
+
     // Initialize core.
     init_settings();
     build_menu();
 
     // Setup clock updates.
-    s_countdown_seconds = WORK_INTERVAL;
     tick_timer_service_subscribe(SECOND_UNIT, time_tick_handler);
 
     // Create and configure main window.
@@ -425,7 +485,13 @@ static void init() {
 }
 
 static void deinit() {
-    persist_data();
+    persist_status();
+    if (!s_countdown_paused) {
+        int next_vibra = 
+            (s_countdown_seconds > 0) ? s_countdown_seconds : 60 + s_countdown_seconds % 60;
+        time_t wakeup_time = time(NULL) - 15 + ((next_vibra > 18) ? next_vibra : next_vibra + 60); 
+        wakeup_schedule(wakeup_time, 0, false);
+    }
     window_destroy(s_main_window);
     window_destroy(s_menu_window);
 }
